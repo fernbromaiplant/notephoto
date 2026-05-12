@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的相簿</title>
+    <style>
+        /* 基本樣式 */
+        body { font-family: sans-serif; background: #f4f7f6; margin: 0; padding: 20px; }
+        h1 { font-size: 1.5rem; margin-bottom: 20px; text-align: center; }
+
+        /* --- 核心排版邏輯 --- */
+        .gallery { 
+            display: grid; 
+            gap: 15px; 
+            max-width: 1000px; 
+            margin: 0 auto; 
+        }
+
+        /* 電腦版：固定 4 行 (4x2) */
+        @media (min-width: 768px) {
+            .gallery {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        /* 手機版：固定 2 行 (2x4) */
+        @media (max-width: 767px) {
+            .gallery {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* 卡片與圖片優化 */
+        .card { 
+            background: white; 
+            padding: 8px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            cursor: pointer;
+        }
+        
+        /* 固定長寬比，確保排版整齊不參差不齊 */
+        .img-container {
+            width: 100%;
+            padding-top: 75%; /* 4:3 比例 */
+            position: relative;
+            overflow: hidden;
+            border-radius: 6px;
+        }
+
+        .img-container img {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; /* 裁切填滿，不變形 */
+        }
+
+        .time { margin-top: 8px; font-size: 0.75rem; color: #888; text-align: center; }
+
+        /* 燈箱樣式保持不變... */
+        #lightbox {
+            display: none; position: fixed; z-index: 9999; 
+            top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.9); align-items: center; justify-content: center;
+        }
+        #lightbox img { max-width: 95%; max-height: 90%; object-fit: contain; }
+        .close-btn { position: absolute; top: 20px; right: 20px; color: white; font-size: 35px; cursor: pointer; }
+
+        .pagination { margin-top: 30px; display: flex; justify-content: center; gap: 15px; }
+        button { padding: 10px 20px; border-radius: 5px; border: none; background: #007bff; color: white; cursor: pointer; }
+        button:disabled { background: #ccc; }
+    </style>
+</head>
+<body>
+
+    <h1>我的相簿</h1>
+    
+    <div id="lightbox" onclick="closeLightbox()">
+        <span class="close-btn">&times;</span>
+        <img id="lightbox-img" src="">
+    </div>
+
+    <div id="gallery" class="gallery">載入中...</div>
+
+    <div class="pagination">
+        <button id="prevBtn" onclick="changePage(-1)" disabled>上一頁</button>
+        <button id="nextBtn" onclick="changePage(1)" disabled>下一頁</button>
+    </div>
+
+    <script>
+        let cursors = [null];
+        let currentIndex = 0;
+
+        async function loadImages() {
+            const res = await fetch(`/api/images?cursor=${cursors[currentIndex] || ''}`);
+            const data = await res.json();
+            
+            const container = document.getElementById('gallery');
+            container.innerHTML = data.images.map(item => `
+                <div class="card" onclick="openLightbox('${item.url}')">
+                    <div class="img-container">
+                        <img src="${item.url}" loading="lazy">
+                    </div>
+                    <div class="time">${new Date(item.time).toLocaleDateString()}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('prevBtn').disabled = currentIndex === 0;
+            document.getElementById('nextBtn').disabled = !data.nextCursor;
+            if (data.nextCursor && cursors.length <= currentIndex + 1) cursors.push(data.nextCursor);
+        }
+
+        function openLightbox(url) {
+            document.getElementById('lightbox-img').src = url;
+            document.getElementById('lightbox').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function changePage(step) {
+            currentIndex += step;
+            loadImages();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        loadImages();
+    </script>
+</body>
+</html>
